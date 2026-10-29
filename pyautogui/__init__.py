@@ -532,6 +532,40 @@ def isShiftCharacter(character):
     return character.isupper() or character in set('~!@#$%^&*()_+{}|:"<>?')
 
 
+def _is_wsl():
+    """
+    Returns True if Python is running inside Windows Subsystem for Linux (WSL).
+    Can be overridden by setting the ``PYAUTOGUI_WSL`` environment variable to
+    ``"1"`` / ``"true"`` (force WSL host backend) or ``"0"`` / ``"false"`` (force X11 backend).
+    """
+    env_override = os.environ.get("PYAUTOGUI_WSL")
+    if env_override is not None:
+        return env_override.strip().lower() in ("1", "true", "yes")
+
+    if platform.system() != "Linux":
+        return False
+
+    if "WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ:
+        return True
+
+    release = platform.release().lower()
+    if "microsoft" in release or "wsl" in release:
+        return True
+
+    try:
+        with open("/proc/version", "r") as fp:
+            proc_version = fp.read().lower()
+            if "microsoft" in proc_version or "wsl" in proc_version:
+                return True
+    except (IOError, OSError):
+        pass
+
+    return False
+
+
+IS_WSL = _is_wsl()
+
+
 # The platformModule is where we reference the platform-specific functions.
 if sys.platform.startswith("java"):
     # from . import _pyautogui_java as platformModule
@@ -540,6 +574,17 @@ elif sys.platform == "darwin":
     from . import _pyautogui_osx as platformModule
 elif sys.platform == "win32":
     from . import _pyautogui_win as platformModule
+elif IS_WSL:
+    from . import _pyautogui_wsl as platformModule
+
+    # Override screenshot function on WSL so screenshot(), locateOnScreen(), pixel(), etc.
+    # capture the Windows host desktop instead of calling Linux scrot/gnome-screenshot.
+    screenshot = platformModule._screenshot
+    try:
+        pyscreeze.screenshot = platformModule._screenshot
+        pyscreeze._screenshot_linux = platformModule._screenshot
+    except NameError:
+        pass
 elif platform.system() == "Linux":
     from . import _pyautogui_x11 as platformModule
 else:
@@ -847,15 +892,16 @@ def _normalizeButton(button):
     # TODO - We should check the OS settings to see if it's a left-hand setup, where button 1 would be "right".
 
     # Check that `button` has a valid value:
-    button = button.lower()
-    if platform.system() == "Linux":
+    if isinstance(button, str):
+        button = button.lower()
+    if platform.system() == "Linux" and not IS_WSL:
         # Check for valid button arg on Linux:
         if button not in (LEFT, MIDDLE, RIGHT, PRIMARY, SECONDARY, 1, 2, 3, 4, 5, 6, 7):
             raise PyAutoGUIException(
                 "button argument must be one of ('left', 'middle', 'right', 'primary', 'secondary', 1, 2, 3, 4, 5, 6, 7)"
             )
     else:
-        # Check for valid button arg on Windows and macOS:
+        # Check for valid button arg on Windows, WSL, and macOS:
         if button not in (LEFT, MIDDLE, RIGHT, PRIMARY, SECONDARY, 1, 2, 3):
             raise PyAutoGUIException(
                 "button argument must be one of ('left', 'middle', 'right', 'primary', 'secondary', 1, 2, 3)"

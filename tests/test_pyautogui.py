@@ -878,5 +878,24 @@ class TestPyScreezeFunctions(unittest.TestCase):
         )  # NOTE: This test fails if there is a blue square visible on the screen.
 
 
+class TestWSLDetection(unittest.TestCase):
+    def test_is_wsl_env_override(self):
+        old_val = os.environ.get("PYAUTOGUI_WSL")
+        try:
+            os.environ["PYAUTOGUI_WSL"] = "1"
+            self.assertTrue(pyautogui._is_wsl())
+            os.environ["PYAUTOGUI_WSL"] = "true"
+            self.assertTrue(pyautogui._is_wsl())
+            os.environ["PYAUTOGUI_WSL"] = "0"
+            self.assertFalse(pyautogui._is_wsl())
+            os.environ["PYAUTOGUI_WSL"] = "false"
+            self.assertFalse(pyautogui._is_wsl())
+        finally:
+            if old_val is None:
+                os.environ.pop("PYAUTOGUI_WSL", None)
+            else:
+                os.environ["PYAUTOGUI_WSL"] = old_val
+
+
 if __name__ == "__main__":
     unittest.main()
