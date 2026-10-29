@@ -28,11 +28,6 @@ try:
 except:
     assert False, "The PyTweening module must be installed to complete the tests: pip install pytweening"
 
-try:
-    import pyscreeze
-except:
-    assert False, "The PyScreeze module must be installed to complete the tests: pip install pyscreeze"
-
 """
 # TODO - pygetwindow is Windows-only for now, so don't require it for testing just yet.
 try:
@@ -895,6 +890,109 @@ class TestWSLDetection(unittest.TestCase):
                 os.environ.pop("PYAUTOGUI_WSL", None)
             else:
                 os.environ["PYAUTOGUI_WSL"] = old_val
+
+
+class _MockCompletions(object):
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return self._responses.pop(0)
+
+
+class _MockChat(object):
+    def __init__(self, responses):
+        self.completions = _MockCompletions(responses)
+
+
+class _MockOpenAIClient(object):
+    def __init__(self, responses):
+        self.chat = _MockChat(responses)
+
+
+class TestVLMAgentAndPerform(unittest.TestCase):
+    def setUp(self):
+        self.oldFailsafe = pyautogui.FAILSAFE
+        pyautogui.FAILSAFE = False
+
+    def tearDown(self):
+        pyautogui.FAILSAFE = self.oldFailsafe
+        pyautogui.configure_vlm(client=None)
+        pyautogui._vlm._config.custom_client = None
+
+    def test_vlm_locate_and_center(self):
+        mock_client = _MockOpenAIClient(
+            [
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": '{"found": true, "boxes": [{"left": 100, "top": 200, "width": 80, "height": 40}]}',
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+        pyautogui.configure_vlm(client=mock_client, model="test-vlm")
+        pt = pyautogui.vlm_locate_center("the First Name input field", haystack_image="100x100blueimage.png")
+        self.assertEqual(pt, pyautogui.Point(140, 220))
+
+    def test_perform_compound_instruction(self):
+        # Simulate VLM receiving "type in my name in the first name field and hit enter"
+        # Turn 1: VLM emits keyboard_type(x=150, y=250, text="Alice", press_enter=True)
+        # Turn 2: VLM sees updated screenshot and replies with final summary and no tool calls
+        mock_client = _MockOpenAIClient(
+            [
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "Clicking the first name field, typing Alice, and pressing Enter.",
+                                "tool_calls": [
+                                    {
+                                        "id": "call_1",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "keyboard_type",
+                                            "arguments": '{"x": 150, "y": 250, "text": "Alice", "press_enter": true}',
+                                        },
+                                    }
+                                ],
+                            }
+                        }
+                    ]
+                },
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "Typed 'Alice' into the first name field and pressed Enter.",
+                                "tool_calls": [],
+                            }
+                        }
+                    ]
+                },
+            ]
+        )
+        pyautogui.configure_vlm(client=mock_client, model="test-vlm")
+
+        recorded_steps = []
+        result = pyautogui.perform(
+            "type in my name in the first name field and hit enter",
+            on_step=lambda s: recorded_steps.append(s),
+        )
+        self.assertTrue(result.success)
+        self.assertEqual(len(result.steps), 1)
+        self.assertEqual(result.steps[0]["tool"], "keyboard_type")
+        self.assertEqual(result.steps[0]["arguments"]["text"], "Alice")
+        self.assertTrue(result.steps[0]["arguments"]["press_enter"])
+        self.assertEqual(len(recorded_steps), 1)
 
 
 if __name__ == "__main__":

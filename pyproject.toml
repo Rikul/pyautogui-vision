@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PyAutoGUI"
+version = "0.9.54"
+description = "PyAutoGUI lets Python control the mouse and keyboard, with fast mss screenshots, WSL host support, and VLM AI agent automation."
+readme = "README.md"
+license = { text = "BSD-3-Clause" }
+authors = [
+    { name = "Al Sweigart", email = "al@inventwithpython.com" },
+]
+requires-python = ">=3.10"
+keywords = [
+    "gui",
+    "automation",
+    "test",
+    "testing",
+    "keyboard",
+    "mouse",
+    "cursor",
+    "click",
+    "press",
+    "keystroke",
+    "control",
+    "vlm",
+    "agent",
+    "wsl",
+]
+dependencies = [
+    "pyobjc-core; platform_system == 'Darwin'",
+    "pyobjc-framework-quartz; platform_system == 'Darwin'",
+    "python3-Xlib; platform_system == 'Linux' and 'microsoft' not in platform_release and 'WSL' not in platform_release",
+    "pymsgbox",
+    "pytweening>=1.0.4",
+    "mss",
+    "Pillow",
+    "pygetwindow>=0.0.5; platform_system == 'Windows'",
+    "mouseinfo",
+]
+
+[project.optional-dependencies]
+vlm = [
+    "openai>=1.0.0",
+]
+agent = [
+    "openai>=1.0.0",
+    "mcp",
+    "langchain-core",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "openai>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["pyautogui", "pyautogui.*"]

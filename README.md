@@ -1,40 +1,102 @@
 PyAutoGUI
 =========
 
-PyAutoGUI is a  cross-platform GUI automation Python module for human beings. Used to programmatically control the mouse & keyboard.
+PyAutoGUI is a cross-platform GUI automation Python module for human beings and AI agents. Used to programmatically control the mouse & keyboard, capture fast screenshots via `mss`, and perform natural-language GUI tasks powered by Vision-Language Models (VLMs).
 
-`pip install pyautogui`
+Works on **Windows**, **macOS**, **Linux**, and **WSL (Windows Subsystem for Linux)** (auto-detects WSL and bridges directly to the Windows host desktop).
 
-Full documentation available at https://pyautogui.readthedocs.org
+Quickstart (`uv`)
+=================
 
-Simplified Chinese documentation available at https://github.com/asweigart/pyautogui/blob/master/docs/simplified-chinese.ipynb
+1. **Install dependencies and create the virtual environment with `uv`:**
 
-Source code available at https://github.com/asweigart/pyautogui
+```bash
+uv sync
+```
 
-If you need help installing Python, visit https://installpython3.com/
+*(Optional)* To include the OpenAI SDK, MCP server, and LangChain agent extras:
+
+```bash
+uv sync --extra agent
+```
+
+2. **Configure a VLM (OpenAI, Ollama, vLLM, LM Studio, or OpenRouter) and run a task:**
+
+```python
+import pyautogui
+
+# Connect to any OpenAI-compatible VLM endpoint (e.g., local Ollama / vLLM, or OpenAI)
+pyautogui.configure_vlm(
+    base_url="http://localhost:11434/v1",  # or "https://api.openai.com/v1"
+    api_key="ollama",                      # or your OPENAI_API_KEY
+    model="qwen2.5-vl",                    # or "gpt-4o"
+)
+
+# 1. Execute a compound natural-language instruction:
+result = pyautogui.perform("type in my name 'Alice' in the first name field and hit enter")
+print(result.summary)
+
+# 2. Click or locate UI elements by natural language description:
+pyautogui.click("the blue Submit button")
+box = pyautogui.locateOnScreen("the search input box")
+
+# 3. Inspect the current screen with a VLM:
+answer = pyautogui.vlm_inspect("What error message is currently shown on the dialog?")
+print(answer)
+```
+
+You can also configure the VLM via environment variables instead of calling `configure_vlm()`:
+```bash
+export PYAUTOGUI_VLM_BASE_URL="http://localhost:11434/v1"
+export PYAUTOGUI_VLM_API_KEY="ollama"
+export PYAUTOGUI_VLM_MODEL="qwen2.5-vl"
+```
+
+3. **Run commands or tests with `uv run`:**
+
+```bash
+uv run pytest
+```
+
+AI Agent Toolkit (`pyautogui.agent`)
+====================================
+
+PyAutoGUI includes built-in tool schemas (`TOOLS`) and adapters for AI agent frameworks:
+
+```python
+from pyautogui.agent import (
+    TOOLS,
+    execute_tool,
+    capture_for_vlm,
+    get_openai_tools,
+    get_langchain_tools,
+    create_mcp_server,
+)
+
+# Get OpenAI function-calling tool schemas:
+tools = get_openai_tools()
+
+# Execute a tool call returned by an LLM/VLM:
+res = execute_tool("keyboard_type", {
+    "target": "the first name field",
+    "text": "Alice",
+    "press_enter": True,
+})
+
+# Or expose PyAutoGUI as an MCP (Model Context Protocol) server:
+mcp_server = create_mcp_server()
+```
 
 Dependencies
 ============
 
-PyAutoGUI supports Python 2 and 3. If you are installing PyAutoGUI from PyPI using pip:
+If you are installing PyAutoGUI using `uv sync` or `pip install pyautogui`:
 
-Windows has no dependencies. The Win32 extensions do not need to be installed.
-
-macOS needs the pyobjc-core and pyobjc module installed (in that order).
-
-Linux needs the python3-xlib (or python-xlib for Python 2) module installed.
-
-Pillow needs to be installed, and on Linux you may need to install additional libraries to make sure Pillow's PNG/JPEG works correctly. See:
-
-    https://stackoverflow.com/questions/7648200/pip-install-pil-e-tickets-1-no-jpeg-png-support
-
-    http://ubuntuforums.org/showthread.php?t=1751455
-
-If you want to do development and contribute to PyAutoGUI, you will need to install these modules from PyPI:
-
-* pyscreeze
-* pymsgbox
-* pytweening
+* **Screen Capture**: Uses `mss` and `Pillow` for fast cross-platform screenshots (`pyscreeze` is no longer required).
+* **Windows**: No extra OS dependencies.
+* **WSL (Windows Subsystem for Linux)**: Auto-detected (`pyautogui.IS_WSL`); automatically controls the Windows host mouse, keyboard, and screen via Windows interop (`powershell.exe`). Set `PYAUTOGUI_WSL=0` to force native X11 mode inside WSLg.
+* **macOS**: Uses `pyobjc-core` and `pyobjc-framework-quartz`.
+* **Linux**: Uses `python3-Xlib` on X11.
 
 Example Usage
 =============
@@ -117,10 +179,9 @@ How Does PyAutoGUI Work?
 
 The three major operating systems (Windows, macOS, and Linux) each have different ways to programmatically control the mouse and keyboard. This can often involve confusing, obscure, and deeply technical details. The job of PyAutoGUI is to hide all of this complexity behind a simple API.
 
-* On Windows, PyAutoGUI accesses the Windows API (also called the WinAPI or win32 API) through the built-in `ctypes` module. The `nicewin` module at https://github.com/asweigart/nicewin provides a demonstration for how Windows API calls can be made through Python.
-
-* On macOS, PyAutoGUI uses the `rubicon-objc` module to access the Cocoa API.
-
+* On Windows, PyAutoGUI accesses the Windows API (also called the WinAPI or win32 API) through the built-in `ctypes` module.
+* On WSL, PyAutoGUI runs a persistent PowerShell Win32 P/Invoke bridge to control the Windows host desktop.
+* On macOS, PyAutoGUI uses `pyobjc` (`Quartz` and `AppKit`) to access the Cocoa API.
 * On Linux, PyAutoGUI uses the `Xlib` module to access the X11 or X Window System.
 
 

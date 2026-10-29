@@ -159,87 +159,28 @@ except ImportError:
     alert = confirm = prompt = password = _couldNotImportPyMsgBox
 
 
-def raisePyAutoGUIImageNotFoundException(wrappedFunction):
-    """
-    A decorator that wraps PyScreeze locate*() functions so that the PyAutoGUI user sees them raise PyAutoGUI's
-    ImageNotFoundException rather than PyScreeze's ImageNotFoundException. This is because PyScreeze should be
-    invisible to PyAutoGUI users.
-    """
+from . import _screen
+from ._screen import Box, RGB, center, pixel, pixelMatchesColor, screenshot
+from . import _vlm
+from ._vlm import (
+    configure_vlm,
+    get_vlm_config,
+    is_vlm_configured,
+    locate,
+    locateAll,
+    locateAllOnScreen,
+    locateCenterOnScreen,
+    locateOnScreen,
+    locateOnWindow,
+    vlm_inspect,
+    vlm_locate,
+    vlm_locate_all,
+    vlm_locate_center,
+)
+from . import agent
+from .agent import perform, run_task
 
-    @functools.wraps(wrappedFunction)
-    def wrapper(*args, **kwargs):
-        try:
-            return wrappedFunction(*args, **kwargs)
-        except pyscreeze.ImageNotFoundException:
-            raise ImageNotFoundException  # Raise PyAutoGUI's ImageNotFoundException.
-
-    return wrapper
-
-
-try:
-    import pyscreeze
-    from pyscreeze import center, pixel, pixelMatchesColor, screenshot
-
-    # Change the locate*() functions so that they raise PyAutoGUI's ImageNotFoundException instead.
-    @raisePyAutoGUIImageNotFoundException
-    def locate(*args, **kwargs):
-        return pyscreeze.locate(*args, **kwargs)
-
-    locate.__doc__ = pyscreeze.locate.__doc__
-
-    @raisePyAutoGUIImageNotFoundException
-    def locateAll(*args, **kwargs):
-        return pyscreeze.locateAll(*args, **kwargs)
-
-    locateAll.__doc__ = pyscreeze.locateAll.__doc__
-
-    @raisePyAutoGUIImageNotFoundException
-    def locateAllOnScreen(*args, **kwargs):
-        return pyscreeze.locateAllOnScreen(*args, **kwargs)
-
-    locateAllOnScreen.__doc__ = pyscreeze.locateAllOnScreen.__doc__
-
-    @raisePyAutoGUIImageNotFoundException
-    def locateCenterOnScreen(*args, **kwargs):
-        return pyscreeze.locateCenterOnScreen(*args, **kwargs)
-
-    locateCenterOnScreen.__doc__ = pyscreeze.locateCenterOnScreen.__doc__
-
-    @raisePyAutoGUIImageNotFoundException
-    def locateOnScreen(*args, **kwargs):
-        return pyscreeze.locateOnScreen(*args, **kwargs)
-
-    locateOnScreen.__doc__ = pyscreeze.locateOnScreen.__doc__
-
-    @raisePyAutoGUIImageNotFoundException
-    def locateOnWindow(*args, **kwargs):
-        return pyscreeze.locateOnWindow(*args, **kwargs)
-
-    locateOnWindow.__doc__ = pyscreeze.locateOnWindow.__doc__
-
-
-except ImportError:
-    # If pyscreeze module is not found, screenshot-related features will simply not work.
-    def _couldNotImportPyScreeze(*unused_args, **unsed_kwargs):
-        """
-        This function raises ``PyAutoGUIException``. It's used for the PyScreeze function names if the PyScreeze module
-        failed to be imported.
-        """
-        raise PyAutoGUIException(
-            "PyAutoGUI was unable to import pyscreeze. (This is likely because you're running a version of Python that Pillow (which pyscreeze depends on) doesn't support currently.) Please install this module to enable the function you tried to call."
-        )
-
-    center = _couldNotImportPyScreeze
-    #grab = _couldNotImportPyScreeze  # grab() was removed, use screenshot() instead
-    locate = _couldNotImportPyScreeze
-    locateAll = _couldNotImportPyScreeze
-    locateAllOnScreen = _couldNotImportPyScreeze
-    locateCenterOnScreen = _couldNotImportPyScreeze
-    locateOnScreen = _couldNotImportPyScreeze
-    locateOnWindow = _couldNotImportPyScreeze
-    pixel = _couldNotImportPyScreeze
-    pixelMatchesColor = _couldNotImportPyScreeze
-    screenshot = _couldNotImportPyScreeze
+act = perform  # Alias for perform()
 
 
 try:
@@ -266,19 +207,15 @@ except ImportError:
 
 def useImageNotFoundException(value=None):
     """
-    When called with no arguments, PyAutoGUI will raise ImageNotFoundException when the PyScreeze locate*() functions
-    can't find the image it was told to locate. The default behavior is to return None. Call this function with no
+    When called with no arguments, PyAutoGUI will raise ImageNotFoundException when the locate*() functions
+    can't find the image or target it was told to locate. The default behavior is to return None. Call this function with no
     arguments (or with True as the argument) to have exceptions raised, which is a better practice.
 
     You can also disable raising exceptions by passing False for the argument.
     """
     if value is None:
         value = True
-    # TODO - this will cause a NameError if PyScreeze couldn't be imported:
-    try:
-        pyscreeze.USE_IMAGE_NOT_FOUND_EXCEPTION = value
-    except NameError:
-        raise PyAutoGUIException("useImageNotFoundException() ws called but pyscreeze isn't installed.")
+    _screen.USE_IMAGE_NOT_FOUND_EXCEPTION = bool(value)
 
 
 if sys.platform == "win32":  # PyGetWindow currently only supports Windows.
@@ -576,15 +513,6 @@ elif sys.platform == "win32":
     from . import _pyautogui_win as platformModule
 elif IS_WSL:
     from . import _pyautogui_wsl as platformModule
-
-    # Override screenshot function on WSL so screenshot(), locateOnScreen(), pixel(), etc.
-    # capture the Windows host desktop instead of calling Linux scrot/gnome-screenshot.
-    screenshot = platformModule._screenshot
-    try:
-        pyscreeze.screenshot = platformModule._screenshot
-        pyscreeze._screenshot_linux = platformModule._screenshot
-    except NameError:
-        pass
 elif platform.system() == "Linux":
     from . import _pyautogui_x11 as platformModule
 else:
@@ -703,19 +631,11 @@ def _normalizeXYArgs(firstArg, secondArg):
         return Point(int(firstArg), int(position()[1]))
 
     elif isinstance(firstArg, str):
-        # If x is a string, we assume it's an image filename to locate on the screen:
-        try:
-            location = locateOnScreen(firstArg)
-            # The following code only runs if pyscreeze.USE_IMAGE_NOT_FOUND_EXCEPTION is not set to True, meaning that
-            # locateOnScreen() returns None if the image can't be found.
-            if location is not None:
-                return center(location)
-            else:
-                return None
-        except pyscreeze.ImageNotFoundException:
-            raise ImageNotFoundException
-
-        return center(locateOnScreen(firstArg))
+        # If x is a string, it can be an image filename or a VLM natural-language prompt to locate on the screen:
+        location = locateOnScreen(firstArg)
+        if location is not None:
+            return center(location)
+        return None
 
     elif isinstance(firstArg, Sequence):
         if len(firstArg) == 2:
@@ -1802,7 +1722,7 @@ def displayMousePosition(xOffset=0, yOffset=0):
                 # Pixel color can only be found for the primary monitor, and also not on mac due to the screenshot having the mouse cursor in the way.
                 pixelColor = ("NaN", "NaN", "NaN")
             else:
-                pixelColor = pyscreeze.screenshot().getpixel(
+                pixelColor = screenshot().getpixel(
                     (x, y)
                 )  # NOTE: On Windows & Linux, getpixel() returns a 3-integer tuple, but on macOS it returns a 4-integer tuple.
             positionStr += " RGB: (" + str(pixelColor[0]).rjust(3)
