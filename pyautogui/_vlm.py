@@ -84,10 +84,17 @@ def is_vlm_configured():
     return False
 
 
-def encode_image_base64(pil_image, format="PNG"):
-    """Encode a PIL.Image.Image to a base64 ASCII string."""
+def encode_image_base64(pil_image, format="JPEG", quality=85):
+    """Encode a PIL.Image.Image to a base64 ASCII string (defaults to JPEG for fast VLM payloads)."""
     buf = io.BytesIO()
-    pil_image.save(buf, format=format)
+    fmt = format.upper()
+    if fmt in ("JPG", "JPEG"):
+        fmt = "JPEG"
+        if pil_image.mode != "RGB":
+            pil_image = pil_image.convert("RGB")
+        pil_image.save(buf, format=fmt, quality=quality)
+    else:
+        pil_image.save(buf, format=fmt)
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
@@ -264,8 +271,8 @@ def vlm_locate_all(target, haystack_image=None, region=None):
             'in pixel coordinates, or {"found": false, "boxes": []} if not present.' % (img_w, img_h)
         )
         content_parts.append({"type": "text", "text": prompt_text})
-        content_parts.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + needle_b64}})
-        content_parts.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + haystack_b64}})
+        content_parts.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + needle_b64}})
+        content_parts.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + haystack_b64}})
     else:
         prompt_text = (
             "Locate all UI elements matching the description %r in this screenshot (dimensions %dx%d pixels). "
@@ -273,7 +280,7 @@ def vlm_locate_all(target, haystack_image=None, region=None):
             'in pixel coordinates, or {"found": false, "boxes": []} if not present.' % (str(target), img_w, img_h)
         )
         content_parts.append({"type": "text", "text": prompt_text})
-        content_parts.append({"type": "image_url", "image_url": {"url": "data:image/png;base64," + haystack_b64}})
+        content_parts.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + haystack_b64}})
 
     messages = [
         {
@@ -341,7 +348,7 @@ def vlm_inspect(prompt="Describe the current screen state and active UI elements
             "role": "user",
             "content": [
                 {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + b64}},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + b64}},
             ],
         }
     ]

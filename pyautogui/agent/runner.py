@@ -96,7 +96,7 @@ def perform(
         },
         {
             "type": "image_url",
-            "image_url": {"url": "data:image/png;base64," + snap["base64_png"]},
+            "image_url": {"url": "data:%s;base64,%s" % (snap["mime_type"], snap["base64_image"])},
         },
     ]
 
@@ -170,6 +170,8 @@ def perform(
 
             # Strip large base64 image from the tool response JSON itself and attach a fresh post-action screenshot below
             tool_reply_payload = dict(result)
+            tool_reply_payload.pop("base64_image", None)
+            tool_reply_payload.pop("base64_jpeg", None)
             tool_reply_payload.pop("base64_png", None)
 
             messages.append(
@@ -205,7 +207,7 @@ def perform(
                     },
                     {
                         "type": "image_url",
-                        "image_url": {"url": "data:image/png;base64," + new_snap["base64_png"]},
+                        "image_url": {"url": "data:%s;base64,%s" % (new_snap["mime_type"], new_snap["base64_image"])},
                     },
                 ],
             }

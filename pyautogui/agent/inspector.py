@@ -63,11 +63,12 @@ def annotate_screenshot(pil_image, cursor_pos=None, draw_cursor=True, draw_grid=
     return im
 
 
-def capture_for_vlm(region=None, draw_cursor=True, draw_grid=False, grid_step=200):
+def capture_for_vlm(region=None, draw_cursor=True, draw_grid=False, grid_step=200, image_format="JPEG", quality=85):
     """
     Capture the current screen via ``mss``, annotate it for the VLM, and return a dict containing:
     - ``image``: annotated ``PIL.Image.Image``
-    - ``base64_png``: base64-encoded PNG string
+    - ``base64_image``: base64-encoded JPEG string (also aliased as ``base64_jpeg`` and ``base64_png``)
+    - ``mime_type``: ``"image/jpeg"`` (or ``"image/png"``)
     - ``state``: screen metadata dictionary from ``get_screen_state()``
     """
     state = get_screen_state()
@@ -83,8 +84,13 @@ def capture_for_vlm(region=None, draw_cursor=True, draw_grid=False, grid_step=20
         draw_grid=draw_grid,
         grid_step=grid_step,
     )
+    b64 = encode_image_base64(annotated, format=image_format, quality=quality)
+    mime_type = "image/jpeg" if image_format.upper() in ("JPG", "JPEG") else "image/" + image_format.lower()
     return {
         "image": annotated,
-        "base64_png": encode_image_base64(annotated),
+        "base64_image": b64,
+        "base64_jpeg": b64,
+        "base64_png": b64,
+        "mime_type": mime_type,
         "state": state,
     }

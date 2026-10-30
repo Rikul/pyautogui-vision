@@ -276,6 +276,8 @@ def execute_tool(name, arguments):
             "status": "ok",
             "action": "inspect_screen",
             "state": snap["state"],
+            "mime_type": snap["mime_type"],
+            "base64_jpeg": snap["base64_jpeg"],
             "base64_png": snap["base64_png"],
         }
 
