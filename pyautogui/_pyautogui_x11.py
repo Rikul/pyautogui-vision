@@ -14,10 +14,8 @@ import Xlib.XK
 BUTTON_NAME_MAPPING = {LEFT: 1, MIDDLE: 2, RIGHT: 3, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7}
 
 
-if sys.platform in ('java', 'darwin', 'win32'):
+if sys.platform in ('darwin', 'win32'):
     raise Exception('The pyautogui_x11 module should only be loaded on a Unix system that supports X11.')
-
-#from pyautogui import *
 
 """
 Much of this code is based on information gleaned from Paul Barton's PyKeyboard in PyUserInput from 2013, itself derived from Akkana Peck's pykey in 2008 ( http://www.shallowsky.com/software/crikey/pykey-0.1 ), itself derived from her "Crikey" lib.
@@ -281,7 +279,6 @@ keyboardMapping.update({
     '\t': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('Tab')),
     '\n': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('Return')),  # for some reason this needs to be cr, not lf
     '\r': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('Return')),
-    '\e': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('Escape')),
     '!': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('exclam')),
     '#': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('numbersign')),
     '%': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('percent')),

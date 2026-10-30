@@ -15,7 +15,7 @@ import threading
 import pyautogui
 from pyautogui import LEFT, MIDDLE, RIGHT
 
-if sys.platform in ("java", "darwin", "win32"):
+if sys.platform in ("darwin", "win32"):
     raise Exception("The pyautogui_wsl module should only be loaded on a Linux/WSL system.")
 
 

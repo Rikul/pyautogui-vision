@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import os
 import random
 import sys
@@ -7,7 +5,7 @@ import threading
 import time
 import unittest
 import doctest
-from collections import namedtuple  # Added in Python 2.6.
+from collections import namedtuple
 
 import pyautogui
 
@@ -15,28 +13,12 @@ import pyautogui
 scriptFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(scriptFolder)
 
-runningOnPython2 = sys.version_info[0] == 2
-
-if runningOnPython2:
-    INPUT_FUNC = raw_input
-else:
-    INPUT_FUNC = input
-
+INPUT_FUNC = input
 
 try:
     import pytweening
-except:
+except ImportError:
     assert False, "The PyTweening module must be installed to complete the tests: pip install pytweening"
-
-"""
-# TODO - pygetwindow is Windows-only for now, so don't require it for testing just yet.
-try:
-    import pygetwindow
-except:
-    assert False, 'The PyGetWindow module must be installed to complete the tests: pip install pygetwindow'
-"""
-
-# TODO - note that currently most of the click-related functionality is not tested.
 
 
 class P(namedtuple("P", ["x", "y"])):
@@ -80,7 +62,7 @@ class P(namedtuple("P", ["x", "y"])):
     def __pos__(self):
         return self
 
-    def __neg__(self):
+    def __abs__(self):
         return P(abs(self.x), abs(self.y))
 
 

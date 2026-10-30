@@ -51,56 +51,6 @@ MOUSEEVENTF_HWHEEL = 0x01000
 KEYEVENTF_KEYDOWN = 0x0000 # Technically this constant doesn't exist in the MS documentation. It's the lack of KEYEVENTF_KEYUP that means pressing the key down.
 KEYEVENTF_KEYUP = 0x0002
 
-# Documented here: http://msdn.microsoft.com/en-us/library/windows/desktop/ms646270(v=vs.85).aspx
-INPUT_MOUSE = 0
-INPUT_KEYBOARD = 1
-
-
-# These ctypes structures are for Win32 INPUT, MOUSEINPUT, KEYBDINPUT, and HARDWAREINPUT structures,
-# used by SendInput and documented here: http://msdn.microsoft.com/en-us/library/windows/desktop/ms646270(v=vs.85).aspx
-# Thanks to BSH for this StackOverflow answer: https://stackoverflow.com/questions/18566289/how-would-you-recreate-this-windows-api-structure-with-ctypes
-class MOUSEINPUT(ctypes.Structure):
-    _fields_ = [
-        ('dx', ctypes.wintypes.LONG),
-        ('dy', ctypes.wintypes.LONG),
-        ('mouseData', ctypes.wintypes.DWORD),
-        ('dwFlags', ctypes.wintypes.DWORD),
-        ('time', ctypes.wintypes.DWORD),
-        ('dwExtraInfo', ctypes.POINTER(ctypes.wintypes.ULONG)),
-    ]
-
-class KEYBDINPUT(ctypes.Structure):
-    _fields_ = [
-        ('wVk', ctypes.wintypes.WORD),
-        ('wScan', ctypes.wintypes.WORD),
-        ('dwFlags', ctypes.wintypes.DWORD),
-        ('time', ctypes.wintypes.DWORD),
-        ('dwExtraInfo', ctypes.POINTER(ctypes.wintypes.ULONG)),
-    ]
-
-class HARDWAREINPUT(ctypes.Structure):
-    _fields_ = [
-        ('uMsg', ctypes.wintypes.DWORD),
-        ('wParamL', ctypes.wintypes.WORD),
-        ('wParamH', ctypes.wintypes.DWORD)
-    ]
-
-class INPUT(ctypes.Structure):
-    class _I(ctypes.Union):
-        _fields_ = [
-            ('mi', MOUSEINPUT),
-            ('ki', KEYBDINPUT),
-            ('hi', HARDWAREINPUT),
-        ]
-
-    _anonymous_ = ('i', )
-    _fields_ = [
-        ('type', ctypes.wintypes.DWORD),
-        ('i', _I),
-    ]
-# End of the SendInput win32 data structures.
-
-
 
 """ Keyboard key mapping for pyautogui:
 Documented at http://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
@@ -265,20 +215,6 @@ def _keyDown(key):
         return
 
     needsShift = pyautogui.isShiftCharacter(key)
-
-    """
-    # OLD CODE: The new code relies on having all keys be loaded in keyboardMapping from the start.
-    if key in keyboardMapping.keys():
-        vkCode = keyboardMapping[key]
-    elif len(key) == 1:
-        # note: I could use this case to update keyboardMapping to cache the VkKeyScan results, but I've decided not to just to make any possible bugs easier to reproduce.
-        vkCode = ctypes.windll.user32.VkKeyScanW(ctypes.wintypes.WCHAR(key))
-        if vkCode == -1:
-            raise ValueError('There is no VK code for key "%s"' % (key))
-        if vkCode > 0x100: # the vk code will be > 0x100 if it needs shift
-            vkCode -= 0x100
-            needsShift = True
-    """
     mods, vkCode = divmod(keyboardMapping[key], 0x100)
 
     for apply_mod, vk_mod in [(mods & 4, 0x12), (mods & 2, 0x11),
@@ -306,19 +242,6 @@ def _keyUp(key):
         return
 
     needsShift = pyautogui.isShiftCharacter(key)
-    """
-    # OLD CODE: The new code relies on having all keys be loaded in keyboardMapping from the start.
-    if key in keyboardMapping.keys():
-        vkCode = keyboardMapping[key]
-    elif len(key) == 1:
-        # note: I could use this case to update keyboardMapping to cache the VkKeyScan results, but I've decided not to just to make any possible bugs easier to reproduce.
-        vkCode = ctypes.windll.user32.VkKeyScanW(ctypes.wintypes.WCHAR(key))
-        if vkCode == -1:
-            raise ValueError('There is no VK code for key "%s"' % (key))
-        if vkCode > 0x100: # the vk code will be > 0x100 if it needs shift
-            vkCode -= 0x100
-            needsShift = True
-    """
     mods, vkCode = divmod(keyboardMapping[key], 0x100)
 
     for apply_mod, vk_mod in [(mods & 4, 0x12), (mods & 2, 0x11),
@@ -479,29 +402,10 @@ def _sendMouseEvent(ev, x, y, dwData=0):
       None
     """
     assert x != None and y != None, 'x and y cannot be set to None'
-    # TODO: ARG! For some reason, SendInput isn't working for mouse events. I'm switching to using the older mouse_event win32 function.
-    #mouseStruct = MOUSEINPUT()
-    #mouseStruct.dx = x
-    #mouseStruct.dy = y
-    #mouseStruct.mouseData = ev
-    #mouseStruct.time = 0
-    #mouseStruct.dwExtraInfo = ctypes.pointer(ctypes.c_ulong(0)) # according to https://stackoverflow.com/questions/13564851/generate-keyboard-events I can just set this. I don't really care about this value.
-    #inputStruct = INPUT()
-    #inputStruct.mi = mouseStruct
-    #inputStruct.type = INPUT_MOUSE
-    #ctypes.windll.user32.SendInput(1, ctypes.pointer(inputStruct), ctypes.sizeof(inputStruct))
-
-    # TODO Note: We need to handle additional buttons, which I believe is documented here:
-    # https://docs.microsoft.com/en-us/windows/desktop/api/winuser/nf-winuser-mouse_event
-
     width, height = _size()
     convertedX = 65536 * x // width + 1
     convertedY = 65536 * y // height + 1
     ctypes.windll.user32.mouse_event(ev, ctypes.c_long(convertedX), ctypes.c_long(convertedY), dwData, 0)
-
-    # TODO: Too many false positives with this code: See: https://github.com/asweigart/pyautogui/issues/108
-    #if ctypes.windll.kernel32.GetLastError() != 0:
-    #    raise ctypes.WinError()
 
 
 def _scroll(clicks, x=None, y=None):

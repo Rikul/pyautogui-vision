@@ -1,29 +1,18 @@
-# PyAutoGUI lets Python control the mouse and keyboard, and other GUI automation tasks. For Windows, macOS, and Linux,
-# on Python 3 and 2.
-# https://github.com/asweigart/pyautogui
-# Al Sweigart al@inventwithpython.com (Send me feedback & suggestions!)
-
-
-# TODO - the following features are half-implemented right now:
-# snapshot logging
-# non-qwerty keyboard mapping
-# primary secondary mouse button awareness
-
-
-from __future__ import absolute_import, division, print_function
-
+# PyAutoGUI-vision lets Python and AI agents control the mouse, keyboard, and screen automation tasks.
+# For Windows, macOS, Linux, and WSL on Python 3.10+.
 
 __version__ = "0.9.54"
 
 import collections
-import sys
-import time
+from collections.abc import Sequence
+from contextlib import contextmanager
 import datetime
+import functools
 import os
 import platform
 import re
-import functools
-from contextlib import contextmanager
+import sys
+import time
 
 
 class PyAutoGUIException(Exception):
@@ -48,19 +37,10 @@ class FailSafeException(PyAutoGUIException):
 
 class ImageNotFoundException(PyAutoGUIException):
     """
-    This exception is the PyAutoGUI version of PyScreeze's `ImageNotFoundException`, which is raised when a locate*()
-    function call is unable to find an image.
-
-    Ideally, `pyscreeze.ImageNotFoundException` should never be raised by PyAutoGUI.
+    This exception is raised when a locate*() function call is unable to find an image or target.
     """
 
-
-if sys.version_info[0] == 2 or sys.version_info[0:2] in ((3, 1), (3, 2)):
-    # Python 2 and 3.1 and 3.2 uses collections.Sequence
-    from collections import Sequence
-else:
-    # Python 3.3+ uses collections.abc.Sequence
-    from collections.abc import Sequence
+    pass
 
 
 try:
@@ -453,12 +433,6 @@ RIGHT = "right"
 PRIMARY = "primary"
 SECONDARY = "secondary"
 
-# Different keyboard mappings:
-# TODO - finish this feature.
-# NOTE: Eventually, I'd like to come up with a better system than this. For now, this seems like it works.
-QWERTY = r"""`1234567890-=qwertyuiop[]\asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:"ZXCVBNM<>?"""
-QWERTZ = r"""=1234567890/0qwertzuiop89-asdfghjkl,\yxcvbnm,.7+!@#$%^&*()?)QWERTZUIOP*(_ASDFGHJKL<|YXCVBNM<>&"""
-
 
 def isShiftCharacter(character):
     """
@@ -504,10 +478,7 @@ IS_WSL = _is_wsl()
 
 
 # The platformModule is where we reference the platform-specific functions.
-if sys.platform.startswith("java"):
-    # from . import _pyautogui_java as platformModule
-    raise NotImplementedError("Jython is not yet supported by PyAutoGUI.")
-elif sys.platform == "darwin":
+if sys.platform == "darwin":
     from . import _pyautogui_osx as platformModule
 elif sys.platform == "win32":
     from . import _pyautogui_win as platformModule
@@ -1740,32 +1711,6 @@ def displayMousePosition(xOffset=0, yOffset=0):
     except KeyboardInterrupt:
         sys.stdout.write("\n")
         sys.stdout.flush()
-
-
-def _snapshot(tag, folder=None, region=None, radius=None):
-    # TODO feature not finished
-    if region is not None and radius is not None:
-        raise Exception("Either region or radius arguments (or neither) can be passed to snapshot, but not both")
-
-    if radius is not None:
-        x, y = platformModule._position()
-
-    if folder is None:
-        folder = os.getcwd()
-
-    now = datetime.datetime.now()
-    filename = "%s-%s-%s_%s-%s-%s-%s_%s.png" % (
-        now.year,
-        str(now.month).rjust(2, "0"),
-        str(now.day).rjust(2, "0"),
-        now.hour,
-        now.minute,
-        now.second,
-        str(now.microsecond)[:3],
-        tag,
-    )
-    filepath = os.path.join(folder, filename)
-    screenshot(filepath)
 
 
 def sleep(seconds):
