@@ -3,8 +3,14 @@
 # BSD license
 
 import json
+import os
+import time
 import pyautogui
 from pyautogui.agent.inspector import capture_for_vlm, get_screen_state
+
+# Default settle delay (in seconds) after GUI-mutating agent actions so menus, focus, and animations can settle.
+AGENT_SETTLE_DELAY = float(os.environ.get("PYAUTOGUI_SETTLE_DELAY", "0.35"))
+DEFAULT_TYPE_INTERVAL = float(os.environ.get("PYAUTOGUI_TYPE_INTERVAL", "0.02"))
 
 
 TOOLS = [
@@ -259,9 +265,18 @@ TOOLS = [
 ]
 
 
-def execute_tool(name, arguments):
+def _settle(settle_delay=None):
+    """Sleep briefly to let the GUI settle after an input action."""
+    delay = AGENT_SETTLE_DELAY if settle_delay is None else float(settle_delay)
+    if delay > 0:
+        time.sleep(delay)
+
+
+def execute_tool(name, arguments, settle_delay=None):
     """
     Execute a PyAutoGUI agent tool by ``name`` with ``arguments`` (a dict or JSON string).
+    Applies ``settle_delay`` (defaults to ``AGENT_SETTLE_DELAY``, 0.35s) after mutating GUI actions
+    so windows, menus, and input focus have time to settle.
     Returns a dictionary with ``status`` ("ok" or "error") and tool-specific result data.
     """
     if isinstance(arguments, str):
@@ -309,6 +324,7 @@ def execute_tool(name, arguments):
             x, y = pt.x, pt.y
 
         pyautogui.click(x=x, y=y, clicks=clicks, button=button, duration=duration)
+        _settle(settle_delay)
         cur = pyautogui.position()
         return {"status": "ok", "action": "mouse_click", "x": cur.x, "y": cur.y, "button": button, "clicks": clicks}
 
@@ -323,6 +339,7 @@ def execute_tool(name, arguments):
             pyautogui.moveTo(x=x, y=y, duration=duration)
         else:
             pyautogui.moveRel(xOffset=dx or 0, yOffset=dy or 0, duration=duration)
+        _settle(settle_delay)
         cur = pyautogui.position()
         return {"status": "ok", "action": "mouse_move", "x": cur.x, "y": cur.y}
 
@@ -337,6 +354,7 @@ def execute_tool(name, arguments):
         if start_x is not None and start_y is not None:
             pyautogui.moveTo(int(start_x), int(start_y))
         pyautogui.dragTo(x, y, duration=duration, button=button)
+        _settle(settle_delay)
         cur = pyautogui.position()
         return {"status": "ok", "action": "mouse_drag", "x": cur.x, "y": cur.y}
 
@@ -349,6 +367,7 @@ def execute_tool(name, arguments):
             pyautogui.hscroll(clicks, x=x, y=y)
         else:
             pyautogui.vscroll(clicks, x=x, y=y)
+        _settle(settle_delay)
         return {"status": "ok", "action": "mouse_scroll", "clicks": clicks, "direction": direction}
 
     elif name == "keyboard_type":
@@ -358,24 +377,29 @@ def execute_tool(name, arguments):
         target = arguments.get("target")
         press_enter = bool(arguments.get("press_enter", False))
         clear_first = bool(arguments.get("clear_first", False))
-        interval = float(arguments.get("interval", 0.0))
+        interval = float(arguments.get("interval", DEFAULT_TYPE_INTERVAL))
 
         if x is not None and y is not None:
             pyautogui.click(int(x), int(y))
+            _settle(settle_delay)
         elif target:
             pt = pyautogui.locateCenterOnScreen(target)
             if pt is None:
                 return {"status": "error", "error": "Could not locate input field: %r" % (target,)}
             pyautogui.click(pt.x, pt.y)
+            _settle(settle_delay)
 
         if clear_first:
             pyautogui.hotkey("ctrl", "a")
             pyautogui.press("backspace")
+            time.sleep(0.1)
 
         pyautogui.typewrite(text, interval=interval)
         if press_enter:
+            time.sleep(0.1)
             pyautogui.press("enter")
 
+        _settle(settle_delay)
         return {
             "status": "ok",
             "action": "keyboard_type",
@@ -387,11 +411,13 @@ def execute_tool(name, arguments):
         keys = arguments["keys"]
         presses = int(arguments.get("presses", 1))
         pyautogui.press(keys, presses=presses)
+        _settle(settle_delay)
         return {"status": "ok", "action": "keyboard_press", "keys": keys, "presses": presses}
 
     elif name == "keyboard_hotkey":
         keys = arguments["keys"]
         pyautogui.hotkey(*keys)
+        _settle(settle_delay)
         return {"status": "ok", "action": "keyboard_hotkey", "keys": keys}
 
     elif name == "get_pixel_color":

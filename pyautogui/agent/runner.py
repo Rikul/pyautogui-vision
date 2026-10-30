@@ -58,6 +58,7 @@ def perform(
     draw_grid=False,
     confirm=False,
     on_step=None,
+    settle_delay=None,
 ):
     """
     Execute a natural-language GUI instruction (including compound multi-action instructions
@@ -71,6 +72,8 @@ def perform(
       confirm (bool or callable, optional): If True, prompts via ``pyautogui.confirm()`` before each tool call.
         If a callable ``confirm(tool_name, tool_args) -> bool``, calls it to approve each action.
       on_step (callable, optional): Optional callback ``on_step(step_dict)`` invoked after each tool execution.
+      settle_delay (float, optional): Seconds to wait after each GUI action so windows/menus/focus can settle
+        (defaults to ``PYAUTOGUI_SETTLE_DELAY`` env var or ``0.35`` seconds).
 
     Returns:
       ``PerformResult(success, summary, steps)``
@@ -152,7 +155,7 @@ def perform(
                     )
 
             try:
-                result = execute_tool(fn_name, parsed_args)
+                result = execute_tool(fn_name, parsed_args, settle_delay=settle_delay)
             except pyautogui.FailSafeException:
                 raise
             except Exception as exc:
